@@ -1,0 +1,12 @@
+# Ana NLP Modelleri
+torch
+transformers
+zemberek-python
+
+# Dosya Okuyucular
+PyMuPDF
+python-docx
+
+# Skorlama (Kosinüs)
+scikit-learn
+numpy
