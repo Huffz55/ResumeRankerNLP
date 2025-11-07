@@ -38,10 +38,17 @@ def get_suitability_score(cv_file_path, criteria_json):
 
     # --- PUANLAMA MODÜLLERİ ---
     
-    # 2. YETKİNLİK PUANI (Kural Tabanlı)
-    # CV'den yetkinlikleri çıkar
-    cv_skills = set(extract_skills_from_text(clean_cv_text))
-    # İlandan GEREKLİ yetkinlikleri al
+    # 2. YETKİNLİK PUANI (Kural Tabanlı - ZEMBEREK ENTEGRE EDİLDİ)
+    
+    # Adım 2a: Zemberek'i kullanarak temiz metinden kökleri (stems) al
+    cv_stems = get_stems(clean_cv_text)
+    
+    # Adım 2b: Kök listesini kullanarak CV'deki yetkinlikleri bul
+    # (utils'deki yeni fonksiyonumuzu çağırıyoruz)
+    cv_skills = set(extract_skills_from_stems(cv_stems))
+    
+    # Adım 2c: İlandan GEREKLİ yetkinlikleri al
+    # (Bu listenin utils'deki KÖK veritabanıyla eşleşmesi gerekir)
     required_skills = set(criteria_json.get("zorunlu_yetkinlikler", []))
     
     score_skills = 0.0
@@ -49,7 +56,14 @@ def get_suitability_score(cv_file_path, criteria_json):
         # Gerekli yetkinliklerin yüzde kaçı CV'de mevcut?
         matching_skills = required_skills.intersection(cv_skills)
         score_skills = (len(matching_skills) / len(required_skills)) * 100
-        logging.info(f"Yetkinlik Eşleşmesi: {len(matching_skills)} / {len(required_skills)}")
+        
+        # Loglama: Hangi yetkinliklerin eşleştiğini görmek için
+        logging.info(f"Yetkinlik Eşleşmesi (Kök): {len(matching_skills)} / {len(required_skills)}")
+        logging.info(f" -> Eşleşenler: {matching_skills}")
+        logging.info(f" -> Eksikler: {required_skills.difference(cv_skills)}")
+    else:
+        logging.info("İlan için zorunlu yetkinlik belirtilmemiş, bu adım atlanıyor.")
+        score_skills = 100.0 # Eğer zorunlu bir şey yoksa, puanı tam ver (veya 0.0, karara bağlı)
     
     # 3. DENEYİM PUANI (Kural Tabanlı)
     cv_experience = extract_experience_years(clean_cv_text)
