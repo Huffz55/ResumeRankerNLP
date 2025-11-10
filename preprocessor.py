@@ -21,7 +21,7 @@ def preprocess_text(text):
     if not text:
         return ""
     text = text.lower() # 1. Tüm harfleri küçük harfe çevir
-    text = re.sub(r'[^\w\s]', '', text) # 2. Noktalama ve özel karakterleri kaldır
+    text = re.sub(r'[^\w\s.#+/]', ' ', text) # 2. Noktalama ve özel karakterleri kaldır
     text = re.sub(r'\s+', ' ', text).strip() # 3. Ekstra boşlukları kaldır
     return text
 
