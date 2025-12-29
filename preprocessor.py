@@ -1,53 +1,59 @@
-import logging
+import docx  # En üste ekle
+from zemberek import TurkishMorphology
 import re
-from zemberek.morphology import TurkishMorphology
+import logging
 
-# --- Zemberek'i Global Olarak Yükle ---
-# Bu, program başladığında SADECE BİR KEZ çalışır.
-# Her CV için tekrar tekrar model yüklenmez.
+logger = logging.getLogger(__name__)
+
+# --- ZEMBEREK (SADECE TÜRKÇE CÜMLELER İÇİN) ---
 try:
-    logger = logging.getLogger(__name__)
-    logger.info("Zemberek (preprocessor) başlatılıyor...")
+    logger.info("Zemberek başlatılıyor...")
     MORPHOLOGY = TurkishMorphology.create_with_defaults()
-    logger.info("✅ Zemberek (preprocessor) başarıyla yüklendi.")
+    logger.info("✅ Zemberek yüklendi.")
 except Exception as e:
-    logging.critical(f"KRİTİK HATA: Zemberek 'preprocessor' yüklenemedi! {e}")
+    logger.warning(f"Zemberek yüklenemedi: {e}")
     MORPHOLOGY = None
 
-# --- Fonksiyonlar ---
 
 def preprocess_text(text):
-    """Metni küçük harfe çevirir ve noktalama işaretlerini kaldırır."""
+    """
+    Skill'leri bozmadan temizleme yapar.
+    """
     if not text:
         return ""
-    text = text.lower() # 1. Tüm harfleri küçük harfe çevir
-    text = re.sub(r'[^\w\s.#+/]', ' ', text) # 2. Noktalama ve özel karakterleri kaldır
-    text = re.sub(r'\s+', ' ', text).strip() # 3. Ekstra boşlukları kaldır
+
+    text = text.lower()
+
+    # 🔒 c#, .net, ci/cd korunur
+    text = re.sub(r'[^\w\s\.\#\/\-]', ' ', text)
+
+    text = re.sub(r'\s+', ' ', text).strip()
     return text
+
 
 def get_stems(text):
     """
-    Ön işlenmiş (preprocess_text) bir metni alır, 
-    kelimelere ayırır ve her kelimenin kökünü döndürür.
+    ⚠️ SADECE TÜRKÇE kelimeler için kullan.
+    Skill çıkarımı için KULLANMA.
     """
     if not MORPHOLOGY:
-        logging.error("Zemberek yüklü olmadığı için kök bulma işlemi atlanıyor.")
-        return text.split() # Zemberek yoksa kelimeleri olduğu gibi döndür
+        return text.split()
 
     stems = []
-    words = text.split()
-    
-    for word in words:
-        if not word:
-            continue
-            
-        analyses = MORPHOLOGY.analyze(word)
-        analysis_list = list(analyses) 
-        
-        if analysis_list:
-            stem = analysis_list[0].get_stem()
-            stems.append(stem)
-        else:
+    for word in text.split():
+        if not word.isalpha():  # python, c#, .net vs geç
             stems.append(word)
-            
+            continue
+
+        try:
+            analysis = MORPHOLOGY.analyze_and_disambiguate(word)
+            lemma = analysis.best_analysis().get_lemma()
+            stems.append(lemma)
+        except Exception:
+            stems.append(word)
+
     return stems
+
+
+
+

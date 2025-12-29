@@ -98,4 +98,3 @@ if __name__ == "__main__":
     run_test("Junior Python Developer", JUNIOR_ILAN_JSON)
     run_test("Senior Python Developer", SENIOR_ILAN_JSON)
     run_test("Test Python Developer", TEST_ILAN_JSON)
-    
