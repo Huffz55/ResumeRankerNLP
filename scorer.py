@@ -10,8 +10,6 @@ from model import get_sentence_embedding
 from sklearn.metrics.pairwise import cosine_similarity
 import logging
 
-# Artık tek bir liste olduğu için genel bir eşik değeri belirliyoruz.
-# Aranan yetkinliklerin en az %20'si yoksa adayı direkt eleyebiliriz.
 MIN_MATCH_RATIO = 0.2 
 
 def calculate_similarity_score(vec1, vec2):
@@ -43,14 +41,13 @@ def get_suitability_score(cv_file_path, criteria_json):
     
     logging.info(f"CV'den çıkarılan yetkinlikler: {list(cv_skills)}")
 
-    # 3️⃣ İLAN KRİTERLERİNİ HAZIRLAMA (Tek Liste: 'yetkinlikler')
+    # 3️⃣ İLAN KRİTERLERİNİ HAZIRLAMA
     target_skills = set()
-    raw_list = criteria_json.get("yetkinlikler", []) # Yeni anahtarımız bu
+    raw_list = criteria_json.get("yetkinlikler", [])
     
     for s in raw_list:
         s_clean = s.lower().strip()
         target_skills.add(s_clean)
-        # Çok kelimeli yetkinlikleri parçala (Opsiyonel, eşleşme şansını artırır)
         if " " in s_clean:
             target_skills.update(s_clean.split())
 
@@ -58,8 +55,7 @@ def get_suitability_score(cv_file_path, criteria_json):
         logging.warning("İlanda hiç yetkinlik kriteri yok, skor 0 dönülüyor.")
         return 0.0
 
-    # --- YETKİNLİK EŞLEŞTİRME (TEK LİSTE) ---
-    # Kesişim kümesini buluyoruz
+    # --- YETKİNLİK EŞLEŞTİRME ---
     matched_skills = {
         s for s in target_skills 
         if s in cv_skills or any(s in skill for skill in cv_skills)
@@ -71,36 +67,46 @@ def get_suitability_score(cv_file_path, criteria_json):
         f"Yetkinlik Eşleşmesi: {len(matched_skills)} / {len(target_skills)} "
         f"→ Oran: %{match_ratio*100:.1f}"
     )
-    logging.info(f"Eşleşenler: {sorted(list(matched_skills))}")
 
-    # --- EŞİK KONTROLÜ ---
     if match_ratio < MIN_MATCH_RATIO:
         logging.info(f"❌ Yetersiz Eşleşme (Eşik: %{MIN_MATCH_RATIO*100}, Aday: %{match_ratio*100:.1f}) → ELENDİ")
         return 0.0
 
-    # Yetkinlik Skoru (0-100 arası)
     score_skills = match_ratio * 100
 
-    # 4️⃣ DENEYİM SKORU
+    # ---------------------------------------------------------
+    # 4️⃣ DENEYİM SKORU (OVERQUALIFIED MANTIĞI EKLENDİ)
+    # ---------------------------------------------------------
     cv_experience = extract_experience_years(clean_cv_text)
     required_experience = criteria_json.get("deneyim_yili", 0)
     
     score_experience = 100.0
+    
     if required_experience > 0:
-        if cv_experience >= required_experience:
-            score_experience = 100.0
-        else:
-            # Deneyim eksikse orantılı puan kır
+        # Üst sınır: İstenen deneyimin %40 fazlası
+        over_limit = required_experience * 1.40
+        
+        if cv_experience < required_experience:
+            # Durum A: Yetersiz Deneyim (Orantısal Azalma)
             score_experience = (cv_experience / required_experience) * 100
+            
+        elif cv_experience > over_limit:
+            # Durum B: Aşırı Nitelikli (Overqualified - Puan Düşürme)
+            # Formül: (Üst Sınır / Aday Deneyimi) * 100
+            # Deneyim arttıkça puan 100'den aşağıya doğru iner.
+            score_experience = (over_limit / cv_experience) * 100
+            
+        else:
+            # Durum C: İdeal Aralık (İstenen ile %40 fazlası arası)
+            score_experience = 100.0
 
-    # 5️⃣ EĞİTİM SKORU (Varsa hesapla)
+    # 5️⃣ EĞİTİM SKORU
     score_education = 0.0
     education_criteria = criteria_json.get("egitim_durumu", [])
     
     if not education_criteria:
-        score_education = 100.0 # Eğitim şartı yoksa tam puan
+        score_education = 100.0 
     else:
-        # Basit mantık: Eğitim kriteri aranıyorsa ve biz CV'de bunu bulamazsak BERT ile bak
         edu_text = " ".join(education_criteria)
         try:
             cv_vec = get_sentence_embedding(clean_cv_text[:1000])
@@ -108,11 +114,9 @@ def get_suitability_score(cv_file_path, criteria_json):
             sim_score = calculate_similarity_score(cv_vec, edu_vec)
             score_education = min(100.0, sim_score + 10.0)
         except:
-            score_education = 50.0 # Hata durumunda nötr puan
+            score_education = 50.0
 
-    # 6️⃣ FİNAL SKOR (Ağırlıklı Toplam)
-    # Ağırlıkları ihtiyacına göre değiştirebilirsin.
-    # Örn: Yetkinlik %60, Deneyim %25, Eğitim %15
+    # 6️⃣ FİNAL SKOR
     final_score = (
         score_skills * 0.60 +
         score_experience * 0.25 +
@@ -120,7 +124,7 @@ def get_suitability_score(cv_file_path, criteria_json):
     )
 
     logging.info(
-        f"SONUÇ → Yetkinlik: {score_skills:.1f}, Deneyim: {score_experience:.1f}, "
+        f"SONUÇ → Yetkinlik: {score_skills:.1f}, Deneyim: {score_experience:.1f} (CV: {cv_experience}, Req: {required_experience}), "
         f"Eğitim: {score_education:.1f} | FİNAL: {final_score:.2f}"
     )
 
