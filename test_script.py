@@ -45,14 +45,24 @@ SENIOR_ILAN_JSON = {
 
 # --- TEST İLAN ---
 TEST_ILAN_JSON = {
-    "zorunlu_yetkinlikler": ["python", "sql", "api", "git"],
-    "istenen_yetkinlikler": ["django", "flask", "html", "css", "docker", "linux"],
-    "egitim_durumu": [
-        "Bilgisayar Mühendisliği",
-        "Yazılım Mühendisliği",
-        "Bilgisayar Bilimleri"
+    "yetkinlikler": [
+        "rest api",
+        "git",
+        "redis",
+        "api",
+        "fastapi",
+        "django",
+        "javascript",
+        "docker",
+        "python",
+        "html",
+        "postgresql",
+        "css",
+        "sql",
+        "linux"
     ],
-    "deneyim_yili": 0
+    "egitim_durumu": [],
+    "deneyim_yili": 2
 }
 
 
